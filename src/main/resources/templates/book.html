@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+    <!--ajax方式请求后台-->
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <!-- 引入样式 -->
+    <link rel="stylesheet" href="https://unpkg.com/element-ui/lib/theme-chalk/index.css">
+    <!-- 引入组件库 -->
+    <script src="https://unpkg.com/element-ui/lib/index.js"></script>
+    <!--JQuery-->
+    <script src="/js/jquery-3.3.1.min.js"></script>
+    <style>
+        #search el-input,#search el-select{
+            display: inline-block;
+        }
+    </style>
+</head>
+<body>
+<div id="lxlBook">
+    <el-row id="search">
+        <el-input type="text" v-model="searchBookForm.bookcode" placeholder="图书编号" style="width: 244px"></el-input>
+        <el-input type="text" v-model="searchBookForm.bookname" style="width: 244px" placeholder="请输入图书名称"></el-input>
+        <el-select v-model="searchBookForm.booktype" style="width: 244px" placeholder="请选择图书类型">
+            <el-option
+                    v-for="item in booktypeList"
+                    :key="item.typename"
+                    :label="item.typename"
+                    :value="item.typeid">
+            </el-option>
+        </el-select>
+        <el-button type="primary" @click="searchBook" icon="el-icon-plus">搜索</el-button>
+        <el-button type="info" @click="reSetSearchBook" icon="el-icon-plus">重置</el-button>
+        <el-button type="success" @click="addBook" icon="el-icon-plus">添加</el-button>
+    </el-row>
+    <!-----------------------------------------数据表格---------------------------------------------->
+    <el-table
+            ref="multipleTable"
+            :data="book"
+            tooltip-effect="dark"
+            style="width: 100%"
+            @selection-change="handleSelectionChange"
+    >
+        <el-table-column
+                type="selection"
+                width="55">
+        </el-table-column>
+        <el-table-column
+                label="图书编号"
+                prop="bookcode"
+                sortable>
+        </el-table-column>
+        <el-table-column
+                label="图书名称"
+                prop="bookname">
+        </el-table-column>
+        <el-table-column
+                label="出版日期"
+                prop="begintime">
+        </el-table-column>
+        <el-table-column
+                label="类型"
+                prop="typename">
+        </el-table-column>
+        <el-table-column
+                label="状态"
+                prop="state"
+                :formatter="formatBookState">
+        </el-table-column>
+    </el-table>
+    <!---------------------------------添加车辆对话框--------------------------------------------->
+    <el-dialog
+            title="添加车辆信息"
+            :visible.sync="addBookDialogVisible"
+            width="25%"
+            center>
+        <el-form :model="addBookForm" :rules="bookRules" ref="addBookForm" label-width="100px" class="demo-addBookForm"
+                 v-if="addBookDialogVisible">
+            <el-form-item label="图书编号" prop="bookcode" style="width: 284px">
+                <el-input type="text" v-model="addBookForm.bookcode" placeholder="请输入图书编号" @change="haveBookcode($event)"></el-input>
+            </el-form-item>
+            <el-form-item label="图书名称" prop="bookname" style="width: 284px">
+                <el-input type="text" v-model="addBookForm.bookname" placeholder="请输入图书名称"></el-input>
+            </el-form-item>
+            <el-form-item label="出版日期" prop="begintime" style="width: 284px">
+                <el-col>
+                    <el-date-picker
+                            v-model="addBookForm.begintime"
+                            type="datetime"
+                            value-format="yyyy-MM-dd HH:mm:ss"
+                            placeholder="选择出版日期">
+                    </el-date-picker>
+                </el-col>
+            </el-form-item>
+            <el-form-item label="图书类型" prop="booktype" style="width: 284px">
+                <el-select v-model="addBookForm.booktype" placeholder="请选择图书类型">
+                    <el-option
+                            v-for="item in booktypeList"
+                            :key="item.typename"
+                            :label="item.typename"
+                            :value="item.typeid">
+                    </el-option>
+                </el-select>
+            </el-form-item>
+            <el-form-item label="图书状态" prop="state" style="width: 284px">
+                <el-select v-model="addBookForm.state" placeholder="请选择">
+                    <el-option label="正常" value="0"></el-option>
+                    <el-option label="禁用" value="1"></el-option>
+                </el-select>
+            </el-form-item>
+        </el-form>
+        <div>
+            <el-row>
+                <el-button style="margin-left: 240px" size="small" type="primary" @click="submitAddBookForm('addBookForm')">创建</el-button>
+                <el-button size="small" @click="resetBookForm('addBookForm')">重置</el-button>
+            </el-row>
+        </div>
+    </el-dialog>
+</div>
+<script>
+    var vm = new Vue({
+        el: "#lxlBook",
+        data: {
+            //当前页
+            pageNo: 1,
+            //一页显示多少条
+            pageSize: 5,
+            //总计多少条数据
+            total: 0,
+            //排序字段
+            orderNo: '',
+            //排序方式
+            orderBy: '',
+            //数据表格显示信息
+            book: [],
+            //选中行信息
+            multipleSelection: [],
+            //添Book对话框
+            addBookDialogVisible: false,
+            //添加Book表单
+            addBookForm: {
+                bookid: '',
+                bookname: '',
+                bookcode: '',
+                begintime: '',
+                booktype: '',
+                state: '',
+            },
+            //修改Book对话框
+            editBookDialogVisible: false,
+            //修改Book表单
+            editBookForm: {
+                bookid: '',
+                bookname: '',
+                bookcode: '',
+                begintime: '',
+                booktype: '',
+                state: '',
+            },
+            //添加、修改form的rule
+            bookRules: {
+                bookname: [
+                    {required: true, message: '请选择图书名称', trigger: 'change'}
+                ],
+                bookcode: [
+                    {required: true, message: '请填写图书编号', trigger: 'blur'}
+                ],
+                begintime: [
+                    {message: '请填写出版日期', trigger: 'blur'}
+                ],
+                booktype: [
+                    {required: true, message: '请选择图书类型'}
+                ],
+                state: [
+                    {required: true, message: '请选择图书状态', trigger: 'change'}
+                ],
+            },
+            //查找Book表单
+            searchBookForm: {
+                bookid: '',
+                bookname: '',
+                bookcode: '',
+                begintime: '',
+                booktype: '',
+                state: '',
+            },
+            //车辆类型选择类型
+            booktypeList: [],
+        },
+        created: function () {
+            var vm = this;
+            this.listBookType();
+            this.loadingData();
+        },
+        methods: {
+            //表格重新加载数据
+            loadingData: function () {
+                //定义请求的url
+                var url = "listBook";
+                var query = {
+                    "pageNo": this.pageNo,
+                    "pageSize": this.pageSize,
+                    "orderNo": this.orderNo,
+                    "orderBy": this.orderBy,
+                    "bookname": this.searchBookForm.bookname,
+                    "bookcode": this.searchBookForm.bookcode,
+                    "booktype": this.searchBookForm.booktype,
+                };
+                axios.post(url, query).then(function (response) {
+                    vm.book = response.data.listBook;
+                });
+            },
+            //格式化
+            formatBookState: function(row, column) {
+                return row.state == '0' ? "正常" : "禁用";
+            },
+            //选中的表格
+            handleSelectionChange: function (val) {
+                vm.multipleSelection = val;
+            },//修改一页显示多少行
+            handleSizeChange: function (pageSize) {
+                vm.pageSize = pageSize;
+                //刷新页面
+                vm.loadingData();
+            },
+            //修改当前页
+            handleCurrentChange: function (pageNo) {
+                //vm.pageNo是全局变量，跟view绑定，参数pageNo是切换当前页传入的值
+                vm.pageNo = pageNo;
+                //刷新页面
+                vm.loadingData();
+            },
+            //提示信息
+            open5: function (msg) {
+                this.$notify.info({
+                    title: '消息',
+                    message: msg
+                });
+            },
+            listBookType: function () {
+                var urls = "listBookType";
+                var query = {};
+                axios.post(urls, query).then(function (response) {
+                    vm.booktypeList = response.data.listBookTypeInfo;
+                }).catch(function (error) {
+                    console.log(error);
+                });
+            },
+            searchBook: function () {
+                this.loadingData();
+                vm.searchUserDialogVisible = false;
+            },
+            addBook: function () {
+                vm.addBookDialogVisible = true;
+            },
+            //提交添加员工的信息
+            submitAddBookForm: function (formName) {
+                this.$refs[formName].validate(function (valid) {
+                    if (valid) {
+                        var urls = "addBook";
+                        axios.post(urls, vm.addBookForm).then(function (response) {
+                            vm.addBookDialogVisible = false;
+                            vm.addBookForm = {
+                                "bookid": '',
+                                "bookname": '',
+                                "bookcode": '',
+                                "begintime": '',
+                                "booktype": '',
+                                "state": '',
+                            };
+                            //重新加载数据
+                            vm.loadingData();
+                            vm.open5(response.data.addBookInfo)
+                        }).catch(function (error) {
+                            console.log(error);
+                        });
+                    } else {
+                        console.log('error submit!!');
+                        return false;
+                    }
+                })
+            },
+            haveBookcode:function(event){
+                var url="haveBookcode?bookcode=" + event;
+                var query = {};
+                axios.post(url,query).then(function (response) {
+                    if(response.data.haveBookcodeInfo=="图书编号存在"){
+                        vm.addBookForm.bookcode='';
+                        vm.open5(response.data.haveBookcodeInfo)
+                    }
+                }).catch(function (error) {
+                    console.log(error);
+                });
+            },
+            //重置form信息
+            resetBookForm: function (formName) {
+                this.$refs[formName].resetFields();
+            },
+            reSetSearchBook: function () {
+                vm.searchBookForm = {
+                    "bookid": '',
+                    "bookname": '',
+                    "bookcode": '',
+                    "begintime": '',
+                    "booktype": '',
+                    "state": '',
+                };
+            },
+        }
+    })
+</script>
+</body>
+</html>

@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.lixiaolei.dao.BookMapper">
+  <resultMap id="BaseResultMap" type="com.lixiaolei.entity.Book">
+    <result column="bookid" jdbcType="INTEGER" property="bookid" />
+    <result column="bookname" jdbcType="VARCHAR" property="bookname" />
+    <result column="bookcode" jdbcType="VARCHAR" property="bookcode" />
+    <result column="begintime" jdbcType="TIMESTAMP" property="begintime" />
+    <result column="booktype" jdbcType="INTEGER" property="booktype" />
+    <result column="state" jdbcType="INTEGER" property="state" />
+  </resultMap>
+  <select id="listBook" parameterType="map" resultType="com.lixiaolei.entity.Book">
+    select book.bookid bookid,book.bookname bookname,book.bookcode bookcode,book.begintime begintime,book.state state,booktype.typename typename from t_book book,t_booktype booktype where book.booktype=booktype.typeid
+    <if test="bookid != null and bookid!=''">
+      and book.bookid = #{bookid,jdbcType=INTEGER}
+    </if>
+    <if test="bookname != null and bookname!=''">
+      and book.bookname like '%${bookname}%'
+    </if>
+    <if test="bookcode != null and bookcode!=''">
+      and book.bookcode like '%${bookcode}%'
+    </if>
+    <if test="begintime != null and begintime!=''">
+      and book.begintime = #{begintime,jdbcType=TIMESTAMP}
+    </if>
+    <if test="booktype != null and booktype!=''">
+      and book.booktype = #{booktype,jdbcType=INTEGER}
+    </if>
+    <if test="state != null and state!=''">
+      and book.state = #{state,jdbcType=INTEGER}
+    </if>
+    <if test="orderNo!=null and orderNo != ''">
+        order by ${orderNo}
+      <if test="orderBy!=null and orderBy != ''">
+        ${orderBy}
+      </if>
+    </if>
+  </select>
+  <select id="listBookType" resultType="map">
+    select distinct typeid,typename from t_booktype
+  </select>
+  <insert id="addBook" parameterType="com.lixiaolei.entity.Book">
+    insert into t_book
+    <trim prefix="(" suffix=")" suffixOverrides=",">
+      <if test="bookid != null">
+        bookid,
+      </if>
+      <if test="bookname != null">
+        bookname,
+      </if>
+      <if test="bookcode != null">
+        bookcode,
+      </if>
+      <if test="begintime != null">
+        begintime,
+      </if>
+      <if test="booktype != null">
+        booktype,
+      </if>
+      <if test="state != null">
+        state,
+      </if>
+    </trim>
+    <trim prefix="values (" suffix=")" suffixOverrides=",">
+      <if test="bookid != null">
+        #{bookid,jdbcType=INTEGER},
+      </if>
+      <if test="bookname != null">
+        #{bookname,jdbcType=VARCHAR},
+      </if>
+      <if test="bookcode != null">
+        #{bookcode,jdbcType=VARCHAR},
+      </if>
+      <if test="begintime != null">
+        #{begintime,jdbcType=TIMESTAMP},
+      </if>
+      <if test="booktype != null">
+        #{booktype,jdbcType=INTEGER},
+      </if>
+      <if test="state != null">
+        #{state,jdbcType=INTEGER},
+      </if>
+    </trim>
+  </insert>
+  <select id="haveBookcode" parameterType="String" resultType="map">
+    select * from t_book where t_book.bookcode=#{bookcode}
+  </select>
+</mapper>
